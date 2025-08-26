@@ -1,2 +1,0 @@
-# Shohrux-market
-Bot

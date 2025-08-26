@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shuhrux Market</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://kit.fontawesome.com/a2e0e6ad5b.js" crossorigin="anonymous"></script>
+<style>
+body { font-family: 'Inter', sans-serif; background:#f3f4f6; }
+.card:hover { transform: scale(1.03); transition: 0.3s; }
+.tab-btn { cursor: pointer; }
+#mainContent { display:none; } /* sayt boshlanishida yashirin */
+</style>
+</head>
+<body>
+
+<!-- Ism so‘rash modal -->
+<div id="nameModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50">
+  <div class="bg-white rounded-lg p-6 w-11/12 max-w-sm text-center">
+    <h2 class="text-lg font-bold mb-4">Ismingizni kiriting</h2>
+    <input id="userNameInput" type="text" placeholder="Ismingiz..." class="border p-2 rounded w-full mb-4">
+    <button onclick="saveName()" class="bg-purple-600 text-white px-4 py-2 rounded w-full">Tasdiqlash</button>
+  </div>
+</div>
+
+<!-- Bosh kontent -->
+<div id="mainContent">
+<!-- Header -->
+<header class="bg-gradient-to-r from-purple-600 to-pink-500 text-white text-center py-4 shadow-md">
+  <h1 class="text-2xl font-bold">🛒 Shuhrux Market</h1>
+  <p id="welcome" class="text-sm mt-1"></p>
+</header>
+
+<!-- Search -->
+<div class="p-4 flex items-center space-x-2">
+  <input id="search" type="text" placeholder="Mahsulot qidirish..." class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-purple-300">
+  <button onclick="filterProducts()" class="bg-purple-600 text-white px-3 py-2 rounded-lg"><i class="fas fa-search"></i></button>
+</div>
+
+<!-- Tabs -->
+<div class="flex justify-around bg-white shadow p-2 text-gray-700">
+  <button onclick="showTab('home')" id="tabHome" class="tab-btn text-purple-600 font-bold">Bosh sahifa</button>
+  <button onclick="showTab('profile')" id="tabProfile" class="tab-btn">Profil</button>
+  <button onclick="showTab('cart')" id="tabCart" class="tab-btn">Savat</button>
+  <button onclick="showTab('notifTab')" id="tabNotif" class="tab-btn">Bildirishnomalar</button>
+</div>
+
+<!-- Home Tab -->
+<section id="home" class="tab-content p-4">
+  <h2 class="text-lg font-semibold mb-2">Tavsiya etamiz</h2>
+  <div id="products" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+</section>
+
+<!-- Profile Tab -->
+<section id="profile" class="tab-content hidden p-4">
+  <h2 class="text-lg font-semibold mb-2">Mahsulot joylash</h2>
+  <form id="productForm" class="space-y-2">
+    <input id="pName" placeholder="Mahsulot nomi" class="border p-2 rounded w-full" required>
+    <input id="pPrice" placeholder="Narxi" type="number" class="border p-2 rounded w-full" required>
+    <textarea id="pDesc" placeholder="Tavsif" class="border p-2 rounded w-full"></textarea>
+    <input type="file" id="pImg" accept="image/*" class="border p-2 rounded w-full" required>
+    <button type="submit" class="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-2 rounded">Joylash</button>
+  </form>
+</section>
+
+<!-- Cart Tab -->
+<section id="cart" class="tab-content hidden p-4">
+  <h2 class="text-lg font-semibold mb-2">Savatim</h2>
+  <div id="cartItems" class="grid grid-cols-1 gap-2"></div>
+</section>
+
+<!-- Notifications Tab -->
+<section id="notifTab" class="tab-content hidden p-4">
+  <h2 class="text-lg font-semibold mb-2">Bildirishnomalar</h2>
+  <div id="notifications" class="space-y-2"></div>
+</section>
+</div>
+
+<script>
+let userName = "";
+let items = [];
+let cart = [];
+let notifications = [];
+
+// Ismni saqlash va saytni ochish
+function saveName(){
+  const input = document.getElementById("userNameInput").value.trim();
+  if(input === ""){ alert("Ismni kiriting!"); return; }
+  userName = input;
+  localStorage.setItem("username", userName);
+  document.getElementById("welcome").innerText = "Xush kelibsiz, " + userName + "!";
+  document.getElementById("nameModal").style.display = "none";
+  document.getElementById("mainContent").style.display = "block";
+
+  items = JSON.parse(localStorage.getItem("items") || "[]");
+  cart = JSON.parse(localStorage.getItem("cart_"+userName) || "[]");
+  notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+  displayProducts();
+  displayCart();
+  displayNotifications();
+}
+
+// Tabs
+function showTab(tab){
+  document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+  document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("text-purple-600","font-bold"));
+  document.getElementById(tab).classList.remove("hidden");
+  document.getElementById("tab"+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add("text-purple-600","font-bold");
+}
+
+// Display products
+function displayProducts(){
+  const prodDiv = document.getElementById("products");
+  prodDiv.innerHTML = "";
+  items.forEach((p, idx) => {
+    const card = `
+    <div class="bg-white rounded-xl shadow-md overflow-hidden card">
+      <img src="${p.img}" class="w-full h-40 object-cover">
+      <div class="p-2">
+        <p class="font-bold text-purple-700">${p.name}</p>
+        <p class="text-gray-700">${p.price} so'm</p>
+        <div class="flex justify-between mt-1">
+          <button onclick="addToCart(${idx})" class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">Savatga</button>
+          <button onclick="toggleFavorite(${idx})" class="bg-pink-100 text-pink-600 px-2 py-1 rounded text-sm"><i class="far fa-heart"></i></button>
+        </div>
+      </div>
+    </div>`;
+    prodDiv.innerHTML += card;
+  });
+  localStorage.setItem("items", JSON.stringify(items));
+}
+
+// Add product
+document.getElementById("productForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  const name = document.getElementById("pName").value;
+  const price = document.getElementById("pPrice").value;
+  const desc = document.getElementById("pDesc").value;
+  const fileInput = document.getElementById("pImg");
+
+  if(fileInput.files.length === 0){ alert("Rasm shart!"); return; }
+  const imgURL = URL.createObjectURL(fileInput.files[0]);
+
+  items.push({name, price, desc, favorite:false, owner:userName, img:imgURL});
+  document.getElementById("productForm").reset();
+  displayProducts();
+  addNotification(`Siz ${name} mahsulotini joyladingiz`);
+});
+
+// Add to cart
+function addToCart(idx){
+  const p = items[idx];
+  cart.push(p);
+  localStorage.setItem("cart_"+userName, JSON.stringify(cart));
+  displayCart();
+  addNotification(`Siz ${p.name} ni savatga qo'shdingiz (sotuvchi: ${p.owner})`);
+}
+
+// Favorite
+function toggleFavorite(idx){
+  const p = items[idx];
+  p.favorite = !p.favorite;
+  displayProducts();
+  addNotification(`Siz ${p.name} ni yoqtirdingiz (sotuvchi: ${p.owner})`);
+}
+
+// Display cart
+function displayCart(){
+  const cartDiv = document.getElementById("cartItems");
+  cartDiv.innerHTML = "";
+  if(cart.length === 0) cartDiv.innerHTML = "<p>Savat bo'sh</p>";
+  cart.forEach((p, idx)=>{
+    cartDiv.innerHTML += `
+    <div class="bg-white p-2 rounded shadow flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <img src="${p.img}" class="w-16 h-16 object-cover rounded">
+        <div>
+          <p class="font-bold">${p.name}</p>
+          <p class="text-gray-700">${p.price} so'm</p>
+        </div>
+      </div>
+      <button onclick="removeFromCart(${idx})" class="bg-red-500 text-white px-2 py-1 rounded">O'chirish</button>
+    </div>`;
+  });
+}
+
+// Remove from cart
+function removeFromCart(idx){
+  cart.splice(idx,1);
+  localStorage.setItem("cart_"+userName, JSON.stringify(cart));
+  displayCart();
+  addNotification(`Savatdan mahsulot o'chirildi`);
+}
+
+// Notifications
+function addNotification(msg){
+  notifications.push(msg);
+  localStorage.setItem("notifications", JSON.stringify(notifications));
+  displayNotifications();
+}
+
+// Display notifications
+function displayNotifications(){
+  const notifDiv = document.getElementById("notifications");
+  notifDiv.innerHTML = notifications.map(n => `<div class="bg-yellow-100 p-2 rounded shadow">${n}</div>`).join('');
+}
+
+// Search
+function filterProducts(){
+  const q = document.getElementById("search").value.toLowerCase();
+  const filtered = items.filter(p => p.name.toLowerCase().includes(q));
+  const prodDiv = document.getElementById("products");
+  prodDiv.innerHTML = "";
+  filtered.forEach((p, idx)=>{
+    prodDiv.innerHTML += `
+    <div class="bg-white rounded-xl shadow-md overflow-hidden card">
+      <img src="${p.img}" class="w-full h-40 object-cover">
+      <div class="p-2">
+        <p class="font-bold text-purple-700">${p.name}</p>
+        <p class="text-gray-700">${p.price} so'm</p>
+        <div class="flex justify-between mt-1">
+          <button onclick="addToCart(${idx})" class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">Savatga</button>
+          <button onclick="toggleFavorite(${idx})" class="bg-pink-100 text-pink-600 px-2 py-1 rounded text-sm"><i class="far fa-heart"></i></button>
+        </div>
+      </div>
+    </div>`;
+  });
+}
+</script>
+</body>
+</html>
